@@ -39,11 +39,17 @@
         <template #renderItem="{ item }">
           <a-list-item>
             <template #actions>
-              <a-popconfirm title="Bạn có chắc muốn xóa?" @confirm="hotelStore.deleteRoom(item.id)">
-                <a-button danger type="text">Xóa</a-button>
-              </a-popconfirm>
+              <a-space>
+                <a-button v-if="editingRoomId !== item.id" type="text" @click="startEditRoom(item)">Sửa</a-button>
+                <a-button v-else type="text" @click="saveEditRoom(item.id)">Lưu</a-button>
+                <a-button v-if="editingRoomId === item.id" type="text" @click="cancelEditRoom">Hủy</a-button>
+                <a-popconfirm v-if="editingRoomId !== item.id" title="Bạn có chắc muốn xóa?" @confirm="hotelStore.deleteRoom(item.id)">
+                  <a-button danger type="text">Xóa</a-button>
+                </a-popconfirm>
+              </a-space>
             </template>
-            <span class="font-medium">{{ item.name }}</span>
+            <span v-if="editingRoomId !== item.id" class="font-medium">{{ item.name }}</span>
+            <a-input v-else v-model:value="editRoomName" class="w-48" />
           </a-list-item>
         </template>
       </a-list>
@@ -97,11 +103,31 @@ const onTimeChange = (time: dayjs.Dayjs) => {
 
 // Room Handling
 const newRoomName = ref('');
+const editingRoomId = ref<string | null>(null);
+const editRoomName = ref('');
 const handleAddRoom = () => {
    if (!newRoomName.value.trim()) return message.error('Vui lòng nhập tên phòng');
    hotelStore.addRoom(newRoomName.value);
    newRoomName.value = '';
    message.success('Đã thêm phòng');
+};
+
+const startEditRoom = (room: { id: string; name: string }) => {
+  editingRoomId.value = room.id;
+  editRoomName.value = room.name;
+};
+
+const cancelEditRoom = () => {
+  editingRoomId.value = null;
+  editRoomName.value = '';
+};
+
+const saveEditRoom = (roomId: string) => {
+  const name = editRoomName.value.trim();
+  if (!name) return message.error('Vui lòng nhập tên phòng');
+  hotelStore.updateRoomName(roomId, name);
+  message.success('Đã cập nhật tên phòng');
+  cancelEditRoom();
 };
 
 // Password Handling

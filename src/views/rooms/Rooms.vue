@@ -130,6 +130,33 @@
              <div><strong>Thời lượng:</strong> {{ getDuration(selectedRoom) }}</div>
              <div><strong>Cọc:</strong> {{ formatPrice(selectedRoom.customer.deposit) }}</div>
           </div>
+          <div class="rounded border bg-white p-4">
+             <div class="mb-3 font-semibold text-slate-700">Cập nhật khách hàng</div>
+             <a-form layout="vertical">
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                   <a-form-item label="Họ tên">
+                      <a-input v-model:value="editCustomerForm.name" placeholder="Họ tên khách" />
+                   </a-form-item>
+                   <a-form-item label="Điện thoại">
+                      <a-input v-model:value="editCustomerForm.phone" placeholder="Số điện thoại" />
+                   </a-form-item>
+                   <a-form-item label="CCCD">
+                      <a-input v-model:value="editCustomerForm.citizenId" placeholder="Số CCCD" />
+                   </a-form-item>
+                   <a-form-item label="Tiền cọc (.000 VND)">
+                      <a-input-number v-model:value="editCustomerForm.deposit" class="w-full"
+                        :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
+                        :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')" />
+                   </a-form-item>
+                   <a-form-item label="Ghi chú" class="md:col-span-2">
+                      <a-textarea v-model:value="editCustomerForm.note" :auto-size="{ minRows: 2, maxRows: 4 }" />
+                   </a-form-item>
+                </div>
+                <div class="flex justify-end">
+                   <a-button type="primary" @click="saveCustomerEdits">Lưu cập nhật</a-button>
+                </div>
+             </a-form>
+          </div>
 
           <!-- Services Section -->
           <div>
@@ -144,7 +171,7 @@
                size="small"
                rowKey="serviceId"
             >
-               <template #bodyCell="{ column, record }">
+               <template #bodyCell="{ column, record, index }">
                   <template v-if="column.key === 'name'">
                      {{ getServiceName(record.serviceId) }}
                   </template>
@@ -154,9 +181,14 @@
                   <template v-if="column.key === 'total'">
                      {{ formatPrice(record.price * record.quantity) }}
                   </template>
+                  <template v-if="column.key === 'action'">
+                     <a-popconfirm title="Xóa dịch vụ này?" @confirm="removeUsageService(index)">
+                        <a-button type="link" danger size="small">Xóa</a-button>
+                     </a-popconfirm>
+                  </template>
                </template>
             </a-table>
-          </div>
+         </div>
 
           <!-- Actions -->
           <div class="flex justify-end gap-2 mt-4 border-t pt-4">
@@ -203,13 +235,24 @@
                       <span class="font-bold">{{ formatPrice(record.total) }}</span>
                   </template>
                   <template v-if="column.key === 'action'">
-                      <a-button v-if="record.isCustom" type="link" danger size="small" @click="removeInvoiceItem(index)">Xóa</a-button>
+                      <a-button v-if="record.kind !== 'block'" type="link" danger size="small" @click="removeInvoiceItem(index)">Xóa</a-button>
                   </template>
               </template>
           </a-table>
 
-           <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-               <a-button type="dashed" @click="addCustomItem">Thêm mục khác</a-button>
+           <div class="mt-4 flex flex-col gap-3">
+               <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                   <div class="flex flex-col gap-2 md:flex-row md:items-end">
+                      <a-select v-model:value="invoiceServiceForm.serviceId" show-search optionFilterProp="label" class="w-full md:w-64" placeholder="Chọn dịch vụ">
+                         <a-select-option v-for="s in hotelStore.services" :key="s.id" :value="s.id" :label="s.name">
+                            {{ s.name }} - {{ formatPrice(s.price) }}
+                         </a-select-option>
+                      </a-select>
+                      <a-input-number v-model:value="invoiceServiceForm.quantity" :min="1" class="w-full md:w-28" />
+                      <a-button type="dashed" @click="addInvoiceService">Thêm dịch vụ</a-button>
+                   </div>
+                   <a-button type="dashed" @click="addCustomItem">Thêm mục khác</a-button>
+               </div>
                <div class="flex flex-col items-end gap-2">
                    <div class="text-right text-xl">
                        <div>Tổng cộng: <strong>{{ formatTotal(invoiceTotal) }}</strong></div>
@@ -336,9 +379,17 @@ const detailVisible = ref(false);
 const selectedRoom = ref<Room | null>(null);
 const serviceModalVisible = ref(false);
 const serviceForm = reactive({ serviceId: '', quantity: 1 });
+const editCustomerForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '' });
 
 const openDetail = (room: Room) => {
    selectedRoom.value = room;
+   if (room.customer) {
+      editCustomerForm.name = room.customer.name || '';
+      editCustomerForm.phone = room.customer.phone || '';
+      editCustomerForm.citizenId = room.customer.citizenId || '';
+      editCustomerForm.deposit = room.customer.deposit || 0;
+      editCustomerForm.note = room.customer.note || '';
+   }
    detailVisible.value = true;
 };
 
@@ -347,6 +398,7 @@ const usageColumns = [
     { title: 'Đơn giá', key: 'price' },
     { title: 'SL', dataIndex: 'quantity' },
     { title: 'Thành tiền', key: 'total' },
+    { title: 'Hành động', key: 'action' },
 ];
 
 const getServiceName = (id: string) => hotelStore.services.find(s => s.id === id)?.name || 'Unknown';
@@ -363,10 +415,30 @@ const handleAddService = () => {
    }
 };
 
+const saveCustomerEdits = () => {
+   if (!selectedRoom.value || !selectedRoom.value.customer) return;
+   const deposit = Number(editCustomerForm.deposit) || 0;
+   hotelStore.updateRoomCustomer(selectedRoom.value.id, {
+      name: editCustomerForm.name?.trim() || '',
+      phone: editCustomerForm.phone?.trim() || '',
+      citizenId: editCustomerForm.citizenId?.trim() || '',
+      deposit,
+      note: editCustomerForm.note?.trim() || ''
+   });
+   message.success('Đã cập nhật thông tin khách hàng');
+};
+
+const removeUsageService = (usageIndex: number) => {
+   if (!selectedRoom.value) return;
+   hotelStore.removeServiceFromRoom(selectedRoom.value.id, usageIndex);
+   message.success('Đã xóa dịch vụ');
+};
+
 // --- Checkout ---
 const checkoutVisible = ref(false);
 const checkoutInvoice = ref<any[]>([]);
 const depositAmount = ref(0);
+const invoiceServiceForm = reactive({ serviceId: '', quantity: 1 });
 
 const invoiceColumns = [
     { title: 'Hạng mục', dataIndex: 'name', key: 'name' },
@@ -388,20 +460,23 @@ const openCheckout = () => {
       quantity: blocks, /* Logical quantity is 1 block-set, but implementation says "Touching due time is a block" so let's treat quantity as blocks and price as blockPrice */
       // Actually, if price is per block, quantity is blocks.
       total: blocks * hotelStore.blockPrice,
-      isCustom: false
+      kind: 'block'
    };
    
    // 2. Services
    const serviceItems = selectedRoom.value.usage.map(u => ({
+       serviceId: u.serviceId,
        name: getServiceName(u.serviceId),
        price: u.price,
        quantity: u.quantity,
        total: u.price * u.quantity,
-       isCustom: false
+       kind: 'service'
    }));
 
    checkoutInvoice.value = [blockItem, ...serviceItems];
    depositAmount.value = selectedRoom.value.customer.deposit;
+   invoiceServiceForm.serviceId = '';
+   invoiceServiceForm.quantity = 1;
    checkoutVisible.value = true;
 };
 
@@ -414,7 +489,51 @@ const invoiceTotal = computed(() => {
 });
 
 const removeInvoiceItem = (index: number) => {
+   const item = checkoutInvoice.value[index];
+   if (!item || item.kind === 'block') return;
    checkoutInvoice.value.splice(index, 1);
+};
+
+const insertInvoiceItem = (item: any) => {
+   const firstCustomIndex = checkoutInvoice.value.findIndex(it => it.kind === 'custom');
+   if (firstCustomIndex === -1) {
+      checkoutInvoice.value.push(item);
+      return;
+   }
+   checkoutInvoice.value.splice(firstCustomIndex, 0, item);
+};
+
+const addInvoiceService = () => {
+   if (!invoiceServiceForm.serviceId) {
+      message.error('Chọn dịch vụ');
+      return;
+   }
+   const service = hotelStore.services.find(s => s.id === invoiceServiceForm.serviceId);
+   if (!service) {
+      message.error('Không tìm thấy dịch vụ');
+      return;
+   }
+   const quantity = Number(invoiceServiceForm.quantity) || 0;
+   if (quantity <= 0) {
+      message.error('Số lượng phải lớn hơn 0');
+      return;
+   }
+   const existing = checkoutInvoice.value.find(item => item.kind === 'service' && item.serviceId === service.id && item.price === service.price);
+   if (existing) {
+      existing.quantity += quantity;
+      recalcTotal(existing);
+   } else {
+      insertInvoiceItem({
+         serviceId: service.id,
+         name: service.name,
+         price: service.price,
+         quantity,
+         total: service.price * quantity,
+         kind: 'service'
+      });
+   }
+   invoiceServiceForm.serviceId = '';
+   invoiceServiceForm.quantity = 1;
 };
 
 const addCustomItem = () => {
@@ -423,7 +542,7 @@ const addCustomItem = () => {
       price: 0,
       quantity: 1,
       total: 0,
-      isCustom: true
+      kind: 'custom'
    });
 };
 

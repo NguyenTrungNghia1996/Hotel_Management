@@ -23,10 +23,10 @@
               <span class="h-2 w-2 rounded-full bg-amber-300"></span>
               Cập nhật tình trạng phòng theo thời gian thực
             </div>
-            <div class="flex items-center gap-2">
+            <!-- <div class="flex items-center gap-2">
               <span class="h-2 w-2 rounded-full bg-amber-300"></span>
               Theo dõi doanh thu dịch vụ theo ca
-            </div>
+            </div> -->
             <div class="flex items-center gap-2">
               <span class="h-2 w-2 rounded-full bg-amber-300"></span>
               Rút gọn thao tác thanh toán cho lễ tân

@@ -112,6 +112,26 @@ export const useHotelStore = defineStore('hotel', () => {
     rooms.value = rooms.value.filter(r => r.id !== id);
   }
 
+  function updateRoomName(id: string, name: string) {
+    const room = rooms.value.find(r => r.id === id);
+    if (room) {
+      room.name = name;
+    }
+  }
+
+  function updateRoomCustomer(
+    roomId: string,
+    data: { name?: string; phone?: string; citizenId?: string; deposit?: number; note?: string }
+  ) {
+    const room = rooms.value.find(r => r.id === roomId);
+    if (!room || !room.customer) return;
+    if (typeof data.deposit === 'number') room.customer.deposit = data.deposit;
+    if ('note' in data) room.customer.note = data.note || '';
+    if ('name' in data) room.customer.name = data.name || '';
+    if ('phone' in data) room.customer.phone = data.phone || '';
+    if ('citizenId' in data) room.customer.citizenId = data.citizenId || '';
+  }
+
   function checkIn(roomId: string, customerData: any) {
     const room = rooms.value.find(r => r.id === roomId);
     if (room) {
@@ -152,11 +172,19 @@ export const useHotelStore = defineStore('hotel', () => {
     }
   }
 
+  function removeServiceFromRoom(roomId: string, usageIndex: number) {
+    const room = rooms.value.find(r => r.id === roomId);
+    if (!room) return;
+    if (usageIndex < 0 || usageIndex >= room.usage.length) return;
+    room.usage.splice(usageIndex, 1);
+  }
+
   return {
     limitTime, blockPrice, services, rooms,
     addService, updateService, deleteService,
-    addRoom, deleteRoom,
-    checkIn, checkOut, addServiceToRoom,
+    addRoom, deleteRoom, updateRoomName,
+    checkIn, checkOut, addServiceToRoom, removeServiceFromRoom,
+    updateRoomCustomer,
     getDueTime, calculateBlocks, isOverdue
   };
 });
