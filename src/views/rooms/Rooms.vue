@@ -8,10 +8,10 @@
           <div class="text-xs uppercase tracking-[0.3em] text-emerald-700">Tổng quan phòng</div>
           <h2 class="font-display mt-2 text-3xl text-slate-900">Theo dõi tình trạng phòng</h2>
           <p class="mt-2 text-sm text-slate-500">
-            Quản lý phòng đang sử dụng, phòng trống và cảnh báo quá hạn theo thời gian thực.
+            Quản lý phòng đang sử dụng và phòng trống theo thời gian thực.
           </p>
         </div>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
           <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
             <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Tổng</div>
             <div class="mt-2 text-2xl font-semibold text-slate-800">{{ roomStats.total }}</div>
@@ -24,10 +24,6 @@
             <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Đang dùng</div>
             <div class="mt-2 text-2xl font-semibold text-teal-700">{{ roomStats.inUse }}</div>
           </div>
-          <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
-            <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Quá hạn</div>
-            <div class="mt-2 text-2xl font-semibold text-amber-700">{{ roomStats.overdue }}</div>
-          </div>
         </div>
       </div>
     </div>
@@ -38,7 +34,6 @@
           <a-radio-button value="all">Tất cả</a-radio-button>
           <a-radio-button value="empty">Trống</a-radio-button>
           <a-radio-button value="in-use">Đang sử dụng</a-radio-button>
-          <a-radio-button value="overdue">Quá hạn</a-radio-button>
         </a-radio-group>
         <a-input-search
           v-model:value="searchText"
@@ -66,11 +61,6 @@
               <span>{{ getStatusLabel(room) }}</span>
             </div>
           </div>
-          <!-- <div class="text-3xl font-bold text-slate-500">
-            <span v-if="room.status === 'empty'">O</span>
-            <span v-else-if="hotelStore.isOverdue(room)">!</span>
-            <span v-else>X</span>
-          </div> -->
         </div>
         <div v-if="room.customer" class="mt-4 text-sm text-slate-600">
           <div class="font-medium" :title="room.customer.name">
@@ -98,16 +88,6 @@
                 :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
                 :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')" />
         </a-form-item>
-        <a-form-item label="Giờ quá hạn">
-          <a-time-picker
-            v-model:value="checkInTimeValue"
-            format="HH:mm"
-            class="w-full"
-            :allowClear="false"
-            @change="onCheckInLimitChange"
-          />
-          <small class="text-slate-500">Mặc định: {{ hotelStore.limitTime }}</small>
-        </a-form-item>
         <a-form-item label="Ghi chú">
           <a-textarea v-model:value="checkInForm.note" />
         </a-form-item>
@@ -126,7 +106,6 @@
              <div><strong>Khách:</strong> {{ selectedRoom.customer.name || 'Khách vãng lai' }}</div>
              <div><strong>SĐT:</strong> {{ selectedRoom.customer.phone || '---' }}</div>
              <div><strong>Vào lúc:</strong> {{ formatDate(selectedRoom.customer.checkInTime) }}</div>
-             <div><strong>Hạn lúc:</strong> {{ formatDate(hotelStore.getDueTime(selectedRoom.customer.checkInTime, getRoomLimitTime(selectedRoom)).toISOString()) }}</div>
              <div><strong>Thời lượng:</strong> {{ getDuration(selectedRoom) }}</div>
              <div><strong>Cọc:</strong> {{ formatPrice(selectedRoom.customer.deposit) }}</div>
           </div>
@@ -286,17 +265,12 @@ const filterStatus = ref('all');
 const searchText = ref('');
 
 const filteredRooms = computed(() => {
-  now.value;
   return hotelStore.rooms.filter(room => {
     // 1. Check status
-    // Note: 'overdue' relies on runtime calculation but status property might need sync.
-    // In strict reactive flow, we can calc overdue here.
     let matchesStatus = true;
-    const isOver = hotelStore.isOverdue(room);
-    
+
     if (filterStatus.value === 'empty') matchesStatus = room.status === 'empty';
-    if (filterStatus.value === 'in-use') matchesStatus = room.status === 'in-use' || (room.status === 'overdue' && !isOver); // Basic 'in-use' includes non-overdue
-    if (filterStatus.value === 'overdue') matchesStatus = isOver;
+    if (filterStatus.value === 'in-use') matchesStatus = room.status !== 'empty';
     if (filterStatus.value === 'all') matchesStatus = true;
 
     // 2. Search
@@ -306,55 +280,45 @@ const filteredRooms = computed(() => {
 });
 
 const roomStats = computed(() => {
-  now.value;
   const total = hotelStore.rooms.length;
   const empty = hotelStore.rooms.filter(room => room.status === 'empty').length;
-  const overdue = hotelStore.rooms.filter(room => hotelStore.isOverdue(room)).length;
   return {
     total,
     empty,
-    overdue,
     inUse: total - empty
   };
 });
 
 const getStatusColor = (room: Room) => {
    if (room.status === 'empty') return 'bg-white border-emerald-100 text-slate-700 hover:border-emerald-300';
-   if (hotelStore.isOverdue(room)) return 'bg-[#fff4e6] border-[#f59e0b] text-[#92400e] hover:border-[#f97316]';
    return 'bg-[#eef7f3] border-[#1f8a70] text-[#114b3f] hover:border-[#2aa37f]';
 };
 
 const getStatusLabel = (room: Room) => {
   if (room.status === 'empty') return 'Trống';
-  if (hotelStore.isOverdue(room)) return 'Quá hạn';
   return 'Đang sử dụng';
 };
 
 const getStatusTone = (room: Room) => {
   if (room.status === 'empty') return 'text-emerald-700';
-  if (hotelStore.isOverdue(room)) return 'text-amber-700';
   return 'text-emerald-800';
 };
 
 const getStatusDot = (room: Room) => {
   if (room.status === 'empty') return 'bg-emerald-300';
-  if (hotelStore.isOverdue(room)) return 'bg-amber-500';
   return 'bg-emerald-500';
 };
 
 // --- Check In ---
 const checkInVisible = ref(false);
 const selectedRoomId = ref<string | null>(null);
-const checkInForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '', customLimitTime: hotelStore.limitTime });
-const checkInTimeValue = ref(dayjs(hotelStore.limitTime, 'HH:mm'));
+const checkInForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '' });
 
 const handleRoomClick = (room: Room) => {
    selectedRoomId.value = room.id;
    if (room.status === 'empty') {
       // Open CheckIn
       checkInForm.name = ''; checkInForm.phone = ''; checkInForm.citizenId = ''; checkInForm.deposit = 0; checkInForm.note = '';
-      checkInForm.customLimitTime = hotelStore.limitTime;
-      checkInTimeValue.value = dayjs(hotelStore.limitTime, 'HH:mm');
       checkInVisible.value = true;
    } else {
       // Open Detail
@@ -368,10 +332,6 @@ const handleCheckIn = () => {
       message.success('Nhận phòng thành công');
       checkInVisible.value = false;
    }
-};
-
-const onCheckInLimitChange = (time: dayjs.Dayjs | null) => {
-  checkInForm.customLimitTime = time ? time.format('HH:mm') : hotelStore.limitTime;
 };
 
 // --- Detail & Service ---
@@ -453,12 +413,11 @@ const openCheckout = () => {
    
    // Build Invoice
    // 1. Blocks
-   const blocks = hotelStore.calculateBlocks(selectedRoom.value.customer.checkInTime, getRoomLimitTime(selectedRoom.value));
+   const blocks = hotelStore.calculateBlocks(selectedRoom.value.customer.checkInTime);
    const blockItem = {
-      name: `Tiền giờ (${blocks} block)`,
+      name: `Tiền phòng (${blocks} block)`,
       price: hotelStore.blockPrice,
-      quantity: blocks, /* Logical quantity is 1 block-set, but implementation says "Touching due time is a block" so let's treat quantity as blocks and price as blockPrice */
-      // Actually, if price is per block, quantity is blocks.
+      quantity: blocks,
       total: blocks * hotelStore.blockPrice,
       kind: 'block'
    };
@@ -719,8 +678,6 @@ const formatDate = (iso: string) => dayjs(iso).format('HH:mm DD/MM/YYYY');
 const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 const formatTotal = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + '.000';
 const formatCompact = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
-
-const getRoomLimitTime = (room: Room | null) => room?.customer?.customLimitTime || hotelStore.limitTime;
 
 const timer = setInterval(() => { now.value = dayjs(); }, 60000);
 onUnmounted(() => clearInterval(timer));

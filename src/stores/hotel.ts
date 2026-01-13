@@ -11,7 +11,7 @@ export interface Service {
 export interface Room {
   id: string;
   name: string;
-  status: 'empty' | 'in-use' | 'overdue';
+  status: 'empty' | 'in-use';
   customer?: {
     name: string;
     phone?: string;
@@ -19,13 +19,22 @@ export interface Room {
     checkInTime: string; // ISO string
     deposit: number;
     note?: string;
-    customLimitTime?: string;
   };
   // Services used by the room
   usage: { serviceId: string; quantity: number; price: number }[]; // price at time of add
   // Ad-hoc items added during checkout
   customItems?: { name: string; quantity: number; price: number }[];
 }
+
+type StoredRoom = Omit<Room, 'status'> & { status?: string };
+
+const normalizeRooms = (rawRooms: StoredRoom[]): Room[] =>
+  rawRooms.map((room) => ({
+    ...room,
+    status: room.status === 'empty' ? 'empty' : 'in-use',
+    usage: Array.isArray(room.usage) ? room.usage : [],
+    customItems: Array.isArray(room.customItems) ? room.customItems : []
+  }));
 
 export const useHotelStore = defineStore('hotel', () => {
   // Settings
@@ -36,7 +45,7 @@ export const useHotelStore = defineStore('hotel', () => {
   const services = ref<Service[]>(JSON.parse(localStorage.getItem('services') || '[]'));
 
   // Rooms
-  const rooms = ref<Room[]>(JSON.parse(localStorage.getItem('rooms') || '[]'));
+  const rooms = ref<Room[]>(normalizeRooms(JSON.parse(localStorage.getItem('rooms') || '[]')));
 
   // Watchers for persistence
   watch(limitTime, (val) => localStorage.setItem('limitTime', val));
@@ -59,42 +68,29 @@ export const useHotelStore = defineStore('hotel', () => {
   // Logic Helpers
   function getDueTime(checkInTime: string, limitTimeStr: string): dayjs.Dayjs {
     const checkIn = dayjs(checkInTime);
-    // Construct limit for the Check-in Day
+    if (!checkIn.isValid()) return dayjs();
     const parts = (limitTimeStr || '11:00').split(':');
-    const hour = parseInt(parts[0] || '11');
-    const minute = parseInt(parts[1] || '00');
-    let limitOnCheckInDay = checkIn
+    const hour = Number.parseInt(parts[0] || '11', 10);
+    const minute = Number.parseInt(parts[1] || '00', 10);
+    const limitOnCheckInDay = checkIn
       .hour(hour)
       .minute(minute)
-      .second(0);
+      .second(0)
+      .millisecond(0);
 
     if (checkIn.isBefore(limitOnCheckInDay)) {
-      // If checkin is 8am, limit is 11am -> Due 11am today
       return limitOnCheckInDay;
-    } else {
-      // If checkin is 1pm, limit is 11am -> Due 11am tomorrow
-      return limitOnCheckInDay.add(1, 'day');
     }
+    return limitOnCheckInDay.add(1, 'day');
   }
 
-  function calculateBlocks(checkInTime: string, limitTimeStr: string, now: dayjs.Dayjs = dayjs()): number {
-    let due = getDueTime(checkInTime, limitTimeStr);
-    let blocks = 1;
-
-    if (now.isAfter(due)) {
-      let tempDue = due;
-      while (now.isAfter(tempDue)) {
-        blocks++;
-        tempDue = tempDue.add(1, 'day');
-      }
-    }
-    return blocks;
-  }
-
-  function isOverdue(room: Room): boolean {
-    if (room.status === 'empty' || !room.customer) return false;
-    const due = getDueTime(room.customer.checkInTime, room.customer.customLimitTime || limitTime.value);
-    return dayjs().isAfter(due);
+  function calculateBlocks(checkInTime: string, now: dayjs.Dayjs = dayjs()): number {
+    const checkIn = dayjs(checkInTime);
+    if (!checkIn.isValid()) return 1;
+    const due = getDueTime(checkInTime, limitTime.value);
+    if (!now.isAfter(due)) return 1;
+    const extraDays = Math.ceil(now.diff(due, 'day', true));
+    return Math.max(1, 1 + extraDays);
   }
 
   // Room Actions
@@ -138,8 +134,7 @@ export const useHotelStore = defineStore('hotel', () => {
       room.status = 'in-use';
       room.customer = {
         ...customerData,
-        checkInTime: dayjs().toISOString(),
-        customLimitTime: customerData.customLimitTime || limitTime.value
+        checkInTime: dayjs().toISOString()
       };
       room.usage = [];
       room.customItems = [];
@@ -185,6 +180,6 @@ export const useHotelStore = defineStore('hotel', () => {
     addRoom, deleteRoom, updateRoomName,
     checkIn, checkOut, addServiceToRoom, removeServiceFromRoom,
     updateRoomCustomer,
-    getDueTime, calculateBlocks, isOverdue
+    calculateBlocks
   };
 });

@@ -4,15 +4,17 @@
       <div class="mb-6">
         <div class="text-xs uppercase tracking-[0.3em] text-emerald-700">Cài đặt</div>
         <h3 class="font-display mt-2 text-2xl text-slate-900">Cài đặt chung</h3>
-        <p class="mt-2 text-sm text-slate-500">Thiết lập giờ giới hạn và giá phòng áp dụng toàn hệ thống.</p>
+        <p class="mt-2 text-sm text-slate-500">Thiết lập giờ chuyển ngày và giá phòng áp dụng toàn hệ thống.</p>
       </div>
       <a-form layout="vertical">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <a-form-item label="Giờ trả phòng giới hạn (hàng ngày)">
+          <a-form-item label="Giờ chuyển ngày (hàng ngày)">
             <a-time-picker v-model:value="timeValue" format="HH:mm" @change="onTimeChange" class="w-full" />
-            <small class="text-slate-500">Mặc định: 11:00</small>
+            <small class="text-slate-500">
+              Trước giờ này: đến giờ này là 1 block. Sau giờ này: đến giờ này ngày hôm sau là 1 block.
+            </small>
           </a-form-item>
-          <a-form-item label="Giá phòng (1 Block)">
+          <a-form-item label="Giá phòng (1 block theo giờ chuyển ngày)">
             <a-input-number v-model:value="hotelStore.blockPrice" class="w-full"
               :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
               :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')"
@@ -97,7 +99,7 @@ const timeValue = ref(dayjs(hotelStore.limitTime, 'HH:mm'));
 const onTimeChange = (time: dayjs.Dayjs) => {
   if (time) {
      hotelStore.limitTime = time.format('HH:mm');
-     message.success('Đã lưu giờ giới hạn');
+     message.success('Đã lưu giờ chuyển ngày');
   }
 };
 
