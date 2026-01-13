@@ -14,6 +14,10 @@
   "build": {
     "appId": "com.hotel.admin",
     "productName": "HotelManager",
+    "icon": "build/icon.png",
+    "win": {
+      "icon": "build/icon.ico"
+    },
     "directories": {
       "output": "dist_electron"
     },

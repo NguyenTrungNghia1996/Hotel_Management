@@ -19,7 +19,6 @@ dist-ssr/
 dist_electron/
 out/
 release/
-build/
 
 # Installers / binaries
 *.exe
