@@ -220,7 +220,7 @@
           <a-table :dataSource="checkoutInvoice" :columns="invoiceColumns" pagination="false" bordered size="small">
               <template #bodyCell="{ column, record, index }">
                   <template v-if="column.key === 'name'">
-                      <a-input v-if="record.isCustom" v-model:value="record.name" size="small" />
+                      <a-input v-if="record.kind === 'custom'" v-model:value="record.name" size="small" />
                       <span v-else>{{ record.name }}</span>
                   </template>
                   <template v-if="column.key === 'quantity'">
