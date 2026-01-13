@@ -198,17 +198,21 @@
               </template>
           </a-table>
 
-           <div class="mt-4 flex justify-between items-center">
+           <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                <a-button type="dashed" @click="addCustomItem">Thêm mục khác</a-button>
-               <div class="text-right text-xl">
-                   <div>Tổng cộng: <strong>{{ formatTotal(invoiceTotal) }}</strong></div>
-                   <div class="text-red-500">Đã cọc: -{{ formatTotal(depositAmount) }}</div>
-                   <div class="border-t pt-2 mt-2 font-bold text-blue-600">Thanh toán: {{ formatTotal(invoiceTotal - depositAmount) }}</div>
+               <div class="flex flex-col items-end gap-2">
+                   <div class="text-right text-xl">
+                       <div>Tổng cộng: <strong>{{ formatTotal(invoiceTotal) }}</strong></div>
+                       <div class="text-red-500">Đã cọc: -{{ formatTotal(depositAmount) }}</div>
+                       <div class="border-t pt-2 mt-2 font-bold text-blue-600">Thanh toán: {{ formatTotal(invoiceTotal - depositAmount) }}</div>
+                   </div>
+                   <a-button type="primary" @click="printInvoice" :disabled="!checkoutInvoice.length">In hóa đơn</a-button>
                </div>
            </div>
        </div>
     </a-modal>
 
+    <iframe id="print-frame" style="display:none;"></iframe>
   </div>
 </template>
 
@@ -352,7 +356,7 @@ const invoiceColumns = [
     { title: 'Đơn giá (.000 VND)', dataIndex: 'price', key: 'price' },
     { title: 'SL', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Thành tiền (.000 VND)', key: 'total' },
-    { title: '', key: 'action' }
+    { title: 'Hành động', key: 'action' }
 ];
 
 const openCheckout = () => {
@@ -413,6 +417,150 @@ const confirmCheckout = () => {
        checkoutVisible.value = false;
        detailVisible.value = false;
    }
+};
+
+type PrintInvoiceItem = {
+  name: string;
+  quantity: number;
+  price: number;
+  total: number;
+};
+
+type PrintPayload = {
+  code: string;
+  roomName: string;
+  customerName: string;
+  customerPhone: string;
+  checkInTime: string;
+  checkOutTime: string;
+  items: PrintInvoiceItem[];
+  total: number;
+  deposit: number;
+  payable: number;
+  note?: string;
+};
+
+const buildInvoiceCode = () => dayjs().format('YYMMDD-HHmm');
+
+const buildPrintPayload = (): PrintPayload | null => {
+   if (!selectedRoom.value || !selectedRoom.value.customer) return null;
+   const customer = selectedRoom.value.customer;
+   const items = checkoutInvoice.value.map(item => ({
+      name: item.name || 'Chi phí khác',
+      quantity: Number(item.quantity) || 0,
+      price: Number(item.price) || 0,
+      total: Number(item.total) || 0
+   }));
+
+   return {
+      code: buildInvoiceCode(),
+      roomName: selectedRoom.value.name,
+      customerName: customer.name || 'Khách vãng lai',
+      customerPhone: customer.phone || '---',
+      checkInTime: formatDate(customer.checkInTime),
+      checkOutTime: formatDate(dayjs().toISOString()),
+      items,
+      total: invoiceTotal.value,
+      deposit: depositAmount.value || 0,
+      payable: invoiceTotal.value - (depositAmount.value || 0),
+      note: customer.note
+   };
+};
+
+const printInvoice = () => {
+   const payload = buildPrintPayload();
+   if (!payload) return;
+   const iframe = document.getElementById('print-frame') as HTMLIFrameElement | null;
+   if (!iframe || !iframe.contentWindow) {
+      message.error('Không thể mở khung in');
+      return;
+   }
+
+   const html = generatePrintableHtml(payload);
+   const doc = iframe.contentWindow.document;
+
+   doc.open();
+   doc.write(`
+  <html>
+    <head>
+      <title>Hóa đơn</title>
+      <style>
+        @page { margin: 0 }
+        body {
+          font-family: monospace;
+          font-size: 13px;
+          padding: 12px;
+          margin: 0;
+        }
+        hr {
+          border: none;
+          border-top: 1px dashed #111827;
+          margin: 10px 0;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+        }
+        th, td {
+          word-break: break-word;
+          padding: 4px 0;
+          font-size: 13px;
+        }
+        th:nth-child(1), td:nth-child(1) { width: 44%; text-align: left; }
+        th:nth-child(2), td:nth-child(2) { width: 16%; text-align: center; }
+        th:nth-child(3), td:nth-child(3) { width: 20%; text-align: right; }
+        th:nth-child(4), td:nth-child(4) { width: 20%; text-align: right; }
+      </style>
+    </head>
+    <body onload="window.print()">
+      ${html}
+    </body>
+  </html>
+`);
+   doc.close();
+};
+
+const generatePrintableHtml = (payload: PrintPayload) => {
+   const itemRows = payload.items.map(item => `
+      <tr>
+        <td>${item.name}</td>
+        <td>${item.quantity}</td>
+        <td>${formatTotal(item.price)} đ</td>
+        <td>${formatTotal(item.total)} đ</td>
+      </tr>
+   `).join('');
+
+   return `
+    <div style="font-family: monospace; font-size: 14px; width: 100%;">
+      <div style="text-align:center; font-weight:bold; font-size:16px;">HÓA ĐƠN THANH TOÁN</div>
+      <div style="text-align:center;">Mã HĐ: <b>${payload.code}</b></div>
+      <div style="text-align:center;">Phòng: <b>${payload.roomName}</b></div>
+      <div style="text-align:center; margin-top:4px;">Khách: ${payload.customerName}</div>
+      <div style="text-align:center;">SĐT: ${payload.customerPhone}</div>
+      <div style="text-align:center;">Nhận: ${payload.checkInTime}</div>
+      <div style="text-align:center;">Trả: ${payload.checkOutTime}</div>
+      <hr />
+      <table>
+        <thead>
+          <tr>
+            <th>Hạng mục</th>
+            <th>SL</th>
+            <th>Đơn giá</th>
+            <th>Thành tiền</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itemRows}
+        </tbody>
+      </table>
+      <div style="text-align:right; margin-top:8px;">Tổng cộng: <b>${formatTotal(payload.total)} đ</b></div>
+      <div style="text-align:right; color:#dc2626;">Đã cọc: -${formatTotal(payload.deposit)} đ</div>
+      <div style="text-align:right; font-weight:bold; font-size:15px;">Thanh toán: ${formatTotal(payload.payable)} đ</div>
+      ${payload.note ? `<div style="margin-top:8px;">Ghi chú: ${payload.note}</div>` : ''}
+      <div style="text-align:center; margin-top:12px; font-weight:bold;">Cảm ơn quý khách!</div>
+    </div>
+   `;
 };
 
 
