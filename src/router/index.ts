@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHistory, createWebHashHistory } from 'vue-router';
 import Login from '../views/Login.vue';
 import DefaultLayout from '../layouts/DefaultLayout.vue';
 import Rooms from '../views/rooms/Rooms.vue';
@@ -6,8 +6,10 @@ import Services from '../views/services/Services.vue';
 import Settings from '../views/settings/Settings.vue';
 import { useAuthStore } from '../stores/auth';
 
+const isFileProtocol = typeof window !== 'undefined' && window.location.protocol === 'file:';
+
 const router = createRouter({
-  history: createWebHistory(),
+  history: isFileProtocol ? createWebHashHistory() : createWebHistory(),
   routes: [
     {
       path: '/login',
