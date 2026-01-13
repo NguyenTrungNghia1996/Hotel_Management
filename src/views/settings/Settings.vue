@@ -55,7 +55,7 @@
         <h3 class="font-display mt-2 text-2xl text-slate-900">Đổi mật khẩu Admin</h3>
         <p class="mt-2 text-sm text-slate-500">Tăng bảo mật bằng cách cập nhật mật khẩu định kỳ.</p>
       </div>
-      <a-form layout="vertical" @finish="onChangePassword">
+      <a-form layout="vertical" :model="passwordState" @finish="onChangePassword">
         <a-form-item label="Mật khẩu cũ" name="oldPassword" :rules="[{ required: true, message: 'Nhập mật khẩu cũ' }]">
           <a-input-password v-model:value="passwordState.oldPassword" />
         </a-form-item>
@@ -75,6 +75,7 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
+import { useRouter } from 'vue-router';
 import { useHotelStore } from '../../stores/hotel';
 import { useAuthStore } from '../../stores/auth';
 import dayjs from 'dayjs';
@@ -82,6 +83,7 @@ import { message } from 'ant-design-vue';
 
 const hotelStore = useHotelStore();
 const authStore = useAuthStore();
+const router = useRouter();
 
 // Time Handling
 const timeValue = ref(dayjs(hotelStore.limitTime, 'HH:mm'));
@@ -104,15 +106,17 @@ const handleAddRoom = () => {
 
 // Password Handling
 const passwordState = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' });
-const onChangePassword = (values: any) => {
-   if (values.newPassword !== values.confirmPassword) {
+const onChangePassword = () => {
+   if (passwordState.newPassword !== passwordState.confirmPassword) {
       return message.error('Mật khẩu xác nhận không khớp');
    }
    try {
-      authStore.changePassword(values.oldPassword, values.newPassword);
+      authStore.changePassword(passwordState.oldPassword, passwordState.newPassword);
       passwordState.oldPassword = '';
       passwordState.newPassword = '';
       passwordState.confirmPassword = '';
+      authStore.logout(false);
+      router.replace('/login');
    } catch (error: any) {
       message.error(error.message);
    }

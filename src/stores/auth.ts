@@ -15,10 +15,12 @@ export const useAuthStore = defineStore('auth', () => {
     return false;
   }
 
-  function logout() {
+  function logout(reload = true) {
     isLoggedIn.value = false;
     localStorage.removeItem('isLoggedIn');
-    window.location.reload();
+    if (reload) {
+      window.location.reload();
+    }
   }
 
   function changePassword(oldPassword: string, newPassword: string) {
