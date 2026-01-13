@@ -473,7 +473,7 @@ const openCheckout = () => {
    // 1. Blocks
    const blocks = hotelStore.calculateBlocks(selectedRoom.value.customer.checkInTime);
    const blockItem = {
-      name: `Tiền phòng (${blocks} block)`,
+      name: `Tiền phòng`,
       price: hotelStore.blockPrice,
       quantity: blocks,
       total: blocks * hotelStore.blockPrice,
