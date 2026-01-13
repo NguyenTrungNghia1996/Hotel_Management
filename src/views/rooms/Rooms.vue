@@ -502,17 +502,31 @@ const printInvoice = () => {
     <head>
       <title>Hóa đơn</title>
       <style>
-        @page { margin: 0 }
+        @page { size: 80mm auto; margin: 0 }
         body {
           font-family: monospace;
           font-size: 13px;
-          padding: 12px;
+          width: 76mm;
+          padding: 6mm 4mm;
           margin: 0;
         }
         hr {
           border: none;
           border-top: 1px dashed #111827;
           margin: 10px 0;
+        }
+        .row {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .label {
+          text-align: left;
+          white-space: nowrap;
+        }
+        .value {
+          text-align: right;
+          word-break: break-word;
         }
         table {
           width: 100%;
@@ -524,8 +538,8 @@ const printInvoice = () => {
           padding: 4px 0;
           font-size: 13px;
         }
-        th:nth-child(1), td:nth-child(1) { width: 44%; text-align: left; }
-        th:nth-child(2), td:nth-child(2) { width: 16%; text-align: center; }
+        th:nth-child(1), td:nth-child(1) { width: 46%; text-align: left; }
+        th:nth-child(2), td:nth-child(2) { width: 14%; text-align: center; }
         th:nth-child(3), td:nth-child(3) { width: 20%; text-align: right; }
         th:nth-child(4), td:nth-child(4) { width: 20%; text-align: right; }
       </style>
@@ -543,8 +557,8 @@ const generatePrintableHtml = (payload: PrintPayload) => {
       <tr>
         <td>${item.name}</td>
         <td>${item.quantity}</td>
-        <td>${formatTotal(item.price)} đ</td>
-        <td>${formatTotal(item.total)} đ</td>
+        <td>${formatCompact(item.price)}</td>
+        <td>${formatCompact(item.total)}</td>
       </tr>
    `).join('');
 
@@ -552,11 +566,11 @@ const generatePrintableHtml = (payload: PrintPayload) => {
     <div style="font-family: monospace; font-size: 14px; width: 100%;">
       <div style="text-align:center; font-weight:bold; font-size:16px;">HÓA ĐƠN THANH TOÁN</div>
       <div style="text-align:center;">Mã HĐ: <b>${payload.code}</b></div>
-      <div style="text-align:center;">Phòng: <b>${payload.roomName}</b></div>
-      <div style="text-align:center; margin-top:4px;">Khách: ${payload.customerName}</div>
-      <div style="text-align:center;">SĐT: ${payload.customerPhone}</div>
-      <div style="text-align:center;">Nhận: ${payload.checkInTime}</div>
-      <div style="text-align:center;">Trả: ${payload.checkOutTime}</div>
+      <div style="text-align:center; margin-bottom:6px;">Phòng: <b>${payload.roomName}</b></div>
+      <div class="row"><span class="label">Khách</span><span class="value">${payload.customerName}</span></div>
+      <div class="row"><span class="label">SĐT</span><span class="value">${payload.customerPhone}</span></div>
+      <div class="row"><span class="label">Nhận</span><span class="value">${payload.checkInTime}</span></div>
+      <div class="row"><span class="label">Trả</span><span class="value">${payload.checkOutTime}</span></div>
       <hr />
       <table>
         <thead>
@@ -585,6 +599,7 @@ const generatePrintableHtml = (payload: PrintPayload) => {
 const formatDate = (iso: string) => dayjs(iso).format('HH:mm DD/MM/YYYY');
 const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 const formatTotal = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + '.000';
+const formatCompact = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
 const getRoomLimitTime = (room: Room | null) => room?.customer?.customLimitTime || hotelStore.limitTime;
 
