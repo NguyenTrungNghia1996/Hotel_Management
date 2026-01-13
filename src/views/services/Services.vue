@@ -1,36 +1,44 @@
 <template>
-  <div class="max-w-4xl mx-auto">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold">Quản lý dịch vụ</h2>
-      <a-button type="primary" @click="openModal()">Thêm Dịch Vụ</a-button>
+  <div class="space-y-6">
+    <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div>
+        <div class="text-xs uppercase tracking-[0.3em] text-emerald-700">Dịch vụ</div>
+        <h2 class="font-display mt-2 text-3xl text-slate-900">Quản lý dịch vụ</h2>
+        <p class="mt-2 text-sm text-slate-500">
+          Cập nhật bảng giá và danh sách dịch vụ theo từng ca trực.
+        </p>
+      </div>
+      <a-button type="primary" size="large" @click="openModal()">Thêm Dịch Vụ</a-button>
     </div>
 
-    <a-table :dataSource="hotelStore.services" :columns="columns" rowKey="id" bordered>
-       <template #bodyCell="{ column, record }">
+    <div class="surface-card p-4 md:p-6">
+      <a-table :dataSource="hotelStore.services" :columns="columns" rowKey="id" :bordered="false">
+        <template #bodyCell="{ column, record }">
           <template v-if="column.key === 'price'">
-             {{ formatPrice(record.price) }}
+            {{ formatPrice(record.price) }}
           </template>
           <template v-if="column.key === 'action'">
-             <a-button type="link" @click="openModal(record)">Sửa</a-button>
-             <a-popconfirm title="Xóa dịch vụ này?" @confirm="hotelStore.deleteService(record.id)">
-               <a-button type="link" danger>Xóa</a-button>
-             </a-popconfirm>
+            <a-button type="link" @click="openModal(record)">Sửa</a-button>
+            <a-popconfirm title="Xóa dịch vụ này?" @confirm="hotelStore.deleteService(record.id)">
+              <a-button type="link" danger>Xóa</a-button>
+            </a-popconfirm>
           </template>
-       </template>
-    </a-table>
+        </template>
+      </a-table>
+    </div>
 
     <a-modal v-model:open="modalVisible" :title="editingId ? 'Sửa dịch vụ' : 'Thêm dịch vụ'" @ok="handleOk">
-       <a-form layout="vertical">
-          <a-form-item label="Tên dịch vụ">
-             <a-input v-model:value="formState.name" />
-          </a-form-item>
-          <a-form-item label="Giá (.000 VND)">
-             <a-input-number v-model:value="formState.price" class="w-full" 
-                :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
-                :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')"
-             />
-          </a-form-item>
-       </a-form>
+      <a-form layout="vertical">
+        <a-form-item label="Tên dịch vụ">
+          <a-input v-model:value="formState.name" />
+        </a-form-item>
+        <a-form-item label="Giá (.000 VND)">
+          <a-input-number v-model:value="formState.price" class="w-full"
+            :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
+            :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')"
+          />
+        </a-form-item>
+      </a-form>
     </a-modal>
   </div>
 </template>

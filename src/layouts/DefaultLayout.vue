@@ -1,8 +1,26 @@
 <template>
-  <a-layout style="height: 100vh; overflow: hidden">
-    <a-layout-sider v-model:collapsed="collapsed" collapsible>
-      <div class="logo p-4 text-white text-xl font-bold truncate">Admin Hotel</div>
-      <a-menu v-model:selectedKeys="selectedKeys" theme="dark" mode="inline">
+  <a-layout class="app-shell min-h-screen">
+    <a-layout-sider v-model:collapsed="collapsed" collapsible class="app-sider">
+      <div class="flex items-center gap-3 px-2">
+        <div class="brand-mark">AH</div>
+        <div v-if="!collapsed" class="min-w-0">
+          <div class="font-display text-lg text-white truncate">Admin</div>
+          <div class="text-xs text-white/70">Quản trị vận hành</div>
+        </div>
+      </div>
+
+      <div v-if="!collapsed" class="px-2">
+        <div class="sider-card">
+          <div class="text-[11px] uppercase tracking-[0.28em] text-white/60">Hôm nay</div>
+          <div class="text-lg font-semibold text-white">{{ todayLabel }}</div>
+          <div class="mt-2 text-sm text-white/70">
+            Trống: {{ roomStats.empty }}/{{ roomStats.total }} phòng
+          </div>
+          <div class="text-sm text-white/70">Quá hạn: {{ roomStats.overdue }}</div>
+        </div>
+      </div>
+
+      <a-menu v-model:selectedKeys="selectedKeys" mode="inline" class="sider-menu">
         <a-menu-item key="1" @click="router.push('/')">
           <template #icon><home-outlined /></template>
           <span>Quản lý phòng</span>
@@ -17,28 +35,40 @@
         </a-menu-item>
       </a-menu>
     </a-layout-sider>
-    <a-layout style="height: 100%; overflow: hidden; display: flex; flex-direction: column;">
-      <a-layout-header style="background: #fff; padding: 0 16px; flex-shrink: 0;" class="flex justify-between items-center shadow-sm z-10">
-        <div class="text-lg font-semibold">{{ headerTitle }}</div>
-        <a-dropdown>
-          <a class="ant-dropdown-link" @click.prevent>
-            Admin <down-outlined />
-          </a>
-          <template #overlay>
-            <a-menu>
-              <a-menu-item @click="logout">
-                <logout-outlined /> Đăng xuất
-              </a-menu-item>
-            </a-menu>
-          </template>
-        </a-dropdown>
+
+    <a-layout class="h-full min-h-0 flex flex-col">
+      <a-layout-header class="app-header flex items-center justify-between">
+        <div>
+          <div class="text-[11px] uppercase tracking-[0.28em] text-emerald-700"></div>
+          <div class="font-display text-2xl text-slate-900"></div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="hidden md:flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm">
+            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            Đang hoạt động
+          </div>
+          <a-dropdown>
+            <a class="flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm" @click.prevent>
+              Admin <down-outlined />
+            </a>
+            <template #overlay>
+              <a-menu>
+                <a-menu-item @click="logout">
+                  <logout-outlined /> Đăng xuất
+                </a-menu-item>
+              </a-menu>
+            </template>
+          </a-dropdown>
+        </div>
       </a-layout-header>
-      <a-layout-content style="margin: 16px; overflow-y: auto; flex-grow: 1;">
-        <div :style="{ padding: '24px', background: '#fff', minHeight: '100%', borderRadius: '8px' }">
+
+      <a-layout-content class="flex-1 overflow-y-auto px-6 pb-6">
+        <div class="surface-glass p-6 min-h-[calc(100vh-170px)]">
           <router-view />
         </div>
       </a-layout-content>
-      <a-layout-footer style="text-align: center; flex-shrink: 0;">
+
+      <a-layout-footer class="text-center text-sm text-slate-500">
         Hotel Management Dashboard ©2026 Admin Hotel
       </a-layout-footer>
     </a-layout>
@@ -46,9 +76,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import { useHotelStore } from '../stores/hotel';
+import dayjs from 'dayjs';
 import {
   HomeOutlined,
   ShoppingOutlined,
@@ -62,6 +94,7 @@ const selectedKeys = ref<string[]>(['1']);
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
+const hotelStore = useHotelStore();
 
 const headerTitle = computed(() => {
   if (route.path === '/services') return 'Quản lý dịch vụ';
@@ -69,11 +102,24 @@ const headerTitle = computed(() => {
   return 'Quản lý phòng';
 });
 
-// Update selectedKeys based on route on mount/change
-// Simplified logic for now, can be reactive watcher
-if (route.path === '/services') selectedKeys.value = ['2'];
-else if (route.path === '/settings') selectedKeys.value = ['3'];
-else selectedKeys.value = ['1'];
+const todayLabel = computed(() => dayjs().format('dddd, DD/MM'));
+
+const roomStats = computed(() => {
+  const total = hotelStore.rooms.length;
+  const empty = hotelStore.rooms.filter(room => room.status === 'empty').length;
+  const overdue = hotelStore.rooms.filter(room => hotelStore.isOverdue(room)).length;
+  return { total, empty, overdue };
+});
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path === '/services') selectedKeys.value = ['2'];
+    else if (path === '/settings') selectedKeys.value = ['3'];
+    else selectedKeys.value = ['1'];
+  },
+  { immediate: true }
+);
 
 const logout = () => {
   authStore.logout();
@@ -81,12 +127,63 @@ const logout = () => {
 </script>
 
 <style scoped>
-.logo {
-  height: 32px;
-  background: rgba(255, 255, 255, 0.2);
-  margin: 16px;
-  line-height: 32px;
-  text-align: center;
-  border-radius: 4px;
+.app-sider {
+  background: linear-gradient(180deg, #0f2b2b 0%, #1a3b35 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.app-sider :deep(.ant-layout-sider-children) {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px 16px;
+}
+
+.brand-mark {
+  height: 40px;
+  width: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #12352f;
+  background: linear-gradient(145deg, #fbe7c6, #f5b87f);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+}
+
+.sider-card {
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.app-sider :deep(.ant-menu) {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 500;
+}
+
+.app-sider :deep(.ant-menu-item) {
+  border-radius: 14px;
+  margin: 4px 0;
+  height: 44px;
+  line-height: 44px;
+}
+
+.app-sider :deep(.ant-menu-item-selected) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.app-sider :deep(.ant-layout-sider-trigger) {
+  background: rgba(10, 20, 18, 0.5);
+  color: #fff;
+}
+
+.app-header {
+  background: transparent;
+  padding: 16px 24px 12px;
+  flex-shrink: 0;
 }
 </style>

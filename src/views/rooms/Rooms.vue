@@ -1,38 +1,82 @@
 <template>
-  <div>
-    <!-- Filters and Search -->
-    <div class="flex flex-col md:flex-row justify-between mb-6 gap-4">
-      <a-radio-group v-model:value="filterStatus" button-style="solid">
-        <a-radio-button value="all">Tất cả</a-radio-button>
-        <a-radio-button value="empty">Trống</a-radio-button>
-        <a-radio-button value="in-use">Đang sử dụng</a-radio-button>
-        <a-radio-button value="overdue">Quá hạn</a-radio-button>
-      </a-radio-group>
-      <a-input-search
-        v-model:value="searchText"
-        placeholder="Tìm phòng..."
-        style="width: 250px"
-      />
+  <div class="space-y-6">
+    <div class="relative overflow-hidden rounded-[28px] border border-[#f0e6da] bg-gradient-to-br from-white via-[#fff7ef] to-[#f3f6f1] p-6">
+      <div class="absolute -right-16 -top-12 h-44 w-44 rounded-full bg-emerald-200/40 blur-2xl"></div>
+      <div class="absolute -left-10 bottom-0 h-36 w-36 rounded-full bg-amber-200/40 blur-2xl"></div>
+      <div class="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div class="text-xs uppercase tracking-[0.3em] text-emerald-700">Tổng quan phòng</div>
+          <h2 class="font-display mt-2 text-3xl text-slate-900">Theo dõi tình trạng phòng</h2>
+          <p class="mt-2 text-sm text-slate-500">
+            Quản lý phòng đang sử dụng, phòng trống và cảnh báo quá hạn theo thời gian thực.
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
+            <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Tổng</div>
+            <div class="mt-2 text-2xl font-semibold text-slate-800">{{ roomStats.total }}</div>
+          </div>
+          <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
+            <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Trống</div>
+            <div class="mt-2 text-2xl font-semibold text-emerald-700">{{ roomStats.empty }}</div>
+          </div>
+          <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
+            <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Đang dùng</div>
+            <div class="mt-2 text-2xl font-semibold text-teal-700">{{ roomStats.inUse }}</div>
+          </div>
+          <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
+            <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Quá hạn</div>
+            <div class="mt-2 text-2xl font-semibold text-amber-700">{{ roomStats.overdue }}</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Room Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+    <div class="surface-card p-4 md:p-5">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <a-radio-group v-model:value="filterStatus" button-style="solid">
+          <a-radio-button value="all">Tất cả</a-radio-button>
+          <a-radio-button value="empty">Trống</a-radio-button>
+          <a-radio-button value="in-use">Đang sử dụng</a-radio-button>
+          <a-radio-button value="overdue">Quá hạn</a-radio-button>
+        </a-radio-group>
+        <a-input-search
+          v-model:value="searchText"
+          placeholder="Tìm phòng..."
+          class="max-w-xs"
+          allow-clear
+          size="large"
+        />
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <div
         v-for="room in filteredRooms"
         :key="room.id"
-        class="room-card relative h-32 rounded-lg shadow-sm border-2 cursor-pointer transition-all hover:shadow-md flex flex-col items-center justify-center text-center p-2"
+        class="room-card group relative cursor-pointer overflow-hidden rounded-2xl border p-4 transition-all"
         :class="getStatusColor(room)"
         @click="handleRoomClick(room)"
       >
-        <div class="text-2xl font-bold mb-1">{{ room.name }}</div>
-        <div class="text-3xl font-bold mb-1">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="text-xl font-semibold">{{ room.name }}</div>
+            <div class="mt-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.25em]" :class="getStatusTone(room)">
+              <span class="h-2 w-2 rounded-full" :class="getStatusDot(room)"></span>
+              <span>{{ getStatusLabel(room) }}</span>
+            </div>
+          </div>
+          <!-- <div class="text-3xl font-bold text-slate-500">
             <span v-if="room.status === 'empty'">O</span>
-            <span v-if="room.status === 'in-use'">X</span>
-            <span v-if="room.status === 'overdue'">!</span>
+            <span v-else-if="hotelStore.isOverdue(room)">!</span>
+            <span v-else>X</span>
+          </div> -->
         </div>
-        <div v-if="room.customer" class="text-sm truncate w-full px-2" :title="room.customer.name">
-           {{ room.customer.name }}
-           <div class="text-xs opacity-75">{{ getDuration(room) }}</div>
+        <div v-if="room.customer" class="mt-4 text-sm text-slate-600">
+          <div class="font-medium" :title="room.customer.name">
+            {{ room.customer.name || 'Khách vãng lai' }}
+          </div>
+          <div class="mt-1 text-xs text-slate-500">{{ getDuration(room) }}</div>
         </div>
       </div>
     </div>
@@ -178,12 +222,14 @@ import duration from 'dayjs/plugin/duration';
 dayjs.extend(duration);
 
 const hotelStore = useHotelStore();
+const now = ref(dayjs());
 
 // --- Filters & Grid ---
 const filterStatus = ref('all');
 const searchText = ref('');
 
 const filteredRooms = computed(() => {
+  now.value;
   return hotelStore.rooms.filter(room => {
     // 1. Check status
     // Note: 'overdue' relies on runtime calculation but status property might need sync.
@@ -202,10 +248,41 @@ const filteredRooms = computed(() => {
   });
 });
 
+const roomStats = computed(() => {
+  now.value;
+  const total = hotelStore.rooms.length;
+  const empty = hotelStore.rooms.filter(room => room.status === 'empty').length;
+  const overdue = hotelStore.rooms.filter(room => hotelStore.isOverdue(room)).length;
+  return {
+    total,
+    empty,
+    overdue,
+    inUse: total - empty
+  };
+});
+
 const getStatusColor = (room: Room) => {
-   if (room.status === 'empty') return 'bg-white border-gray-300 text-gray-400 hover:border-blue-300';
-   if (hotelStore.isOverdue(room)) return 'bg-orange-100 border-orange-500 text-orange-600';
-   return 'bg-blue-100 border-blue-500 text-blue-600'; // In Use
+   if (room.status === 'empty') return 'bg-white border-emerald-100 text-slate-700 hover:border-emerald-300';
+   if (hotelStore.isOverdue(room)) return 'bg-[#fff4e6] border-[#f59e0b] text-[#92400e] hover:border-[#f97316]';
+   return 'bg-[#eef7f3] border-[#1f8a70] text-[#114b3f] hover:border-[#2aa37f]';
+};
+
+const getStatusLabel = (room: Room) => {
+  if (room.status === 'empty') return 'Trống';
+  if (hotelStore.isOverdue(room)) return 'Quá hạn';
+  return 'Đang sử dụng';
+};
+
+const getStatusTone = (room: Room) => {
+  if (room.status === 'empty') return 'text-emerald-700';
+  if (hotelStore.isOverdue(room)) return 'text-amber-700';
+  return 'text-emerald-800';
+};
+
+const getStatusDot = (room: Room) => {
+  if (room.status === 'empty') return 'bg-emerald-300';
+  if (hotelStore.isOverdue(room)) return 'bg-amber-500';
+  return 'bg-emerald-500';
 };
 
 // --- Check In ---
@@ -344,7 +421,6 @@ const formatDate = (iso: string) => dayjs(iso).format('HH:mm DD/MM/YYYY');
 const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 const formatTotal = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + '.000';
 
-const now = ref(dayjs());
 const timer = setInterval(() => { now.value = dayjs(); }, 60000);
 onUnmounted(() => clearInterval(timer));
 
@@ -361,7 +437,12 @@ const getDuration = (room: Room) => {
 </script>
 
 <style scoped>
+.room-card {
+   box-shadow: 0 14px 26px rgba(24, 26, 28, 0.08);
+}
+
 .room-card:hover {
-   transform: translateY(-2px);
+   transform: translateY(-4px);
+   box-shadow: 0 18px 34px rgba(24, 26, 28, 0.12);
 }
 </style>
