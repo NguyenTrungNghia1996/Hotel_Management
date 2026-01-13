@@ -17,6 +17,7 @@ export interface Room {
     phone?: string;
     citizenId?: string;
     checkInTime: string; // ISO string
+    expireAt?: string; // ISO string
     deposit: number;
     note?: string;
   };
@@ -93,6 +94,19 @@ export const useHotelStore = defineStore('hotel', () => {
     return Math.max(1, 1 + extraDays);
   }
 
+  function getRoomExpireAt(room: Room): dayjs.Dayjs | null {
+    if (room.status === 'empty' || !room.customer) return null;
+    const stored = room.customer.expireAt ? dayjs(room.customer.expireAt) : null;
+    if (stored && stored.isValid()) return stored;
+    return getDueTime(room.customer.checkInTime, limitTime.value);
+  }
+
+  function isOverdue(room: Room): boolean {
+    const expireAt = getRoomExpireAt(room);
+    if (!expireAt) return false;
+    return dayjs().isAfter(expireAt);
+  }
+
   // Room Actions
   function addRoom(name: string) {
     rooms.value.push({
@@ -117,7 +131,7 @@ export const useHotelStore = defineStore('hotel', () => {
 
   function updateRoomCustomer(
     roomId: string,
-    data: { name?: string; phone?: string; citizenId?: string; deposit?: number; note?: string }
+    data: { name?: string; phone?: string; citizenId?: string; deposit?: number; note?: string; expireAt?: string }
   ) {
     const room = rooms.value.find(r => r.id === roomId);
     if (!room || !room.customer) return;
@@ -126,15 +140,23 @@ export const useHotelStore = defineStore('hotel', () => {
     if ('name' in data) room.customer.name = data.name || '';
     if ('phone' in data) room.customer.phone = data.phone || '';
     if ('citizenId' in data) room.customer.citizenId = data.citizenId || '';
+    if ('expireAt' in data) room.customer.expireAt = data.expireAt || '';
   }
 
   function checkIn(roomId: string, customerData: any) {
     const room = rooms.value.find(r => r.id === roomId);
     if (room) {
+      const checkInTime = customerData.checkInTime || dayjs().toISOString();
+      const expireAt = customerData.expireAt || getDueTime(checkInTime, limitTime.value).toISOString();
       room.status = 'in-use';
       room.customer = {
-        ...customerData,
-        checkInTime: dayjs().toISOString()
+        name: customerData.name || '',
+        phone: customerData.phone,
+        citizenId: customerData.citizenId,
+        checkInTime,
+        expireAt,
+        deposit: Number(customerData.deposit) || 0,
+        note: customerData.note || ''
       };
       room.usage = [];
       room.customItems = [];
@@ -180,6 +202,6 @@ export const useHotelStore = defineStore('hotel', () => {
     addRoom, deleteRoom, updateRoomName,
     checkIn, checkOut, addServiceToRoom, removeServiceFromRoom,
     updateRoomCustomer,
-    calculateBlocks
+    getDueTime, calculateBlocks, getRoomExpireAt, isOverdue
   };
 });

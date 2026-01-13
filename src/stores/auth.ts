@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', () => {
   const adminPassword = ref(localStorage.getItem('adminPassword') || 'admin');
   const lockReason = ref(localStorage.getItem('authLockReason') || '');
   const ntpTimestamp = ref(localStorage.getItem('ntpTimestamp') || '');
+  const expiryTimestamp = ref(localStorage.getItem('expiryTimestamp') || '');
 
   const isLocked = computed(() => lockReason.value !== '');
   const lockMessage = computed(() => {
@@ -61,6 +62,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function setExpiryTimestamp(value: string | null) {
+    if (value) {
+      expiryTimestamp.value = value;
+      localStorage.setItem('expiryTimestamp', value);
+    } else {
+      expiryTimestamp.value = '';
+      localStorage.removeItem('expiryTimestamp');
+    }
+  }
+
   function changePassword(oldPassword: string, newPassword: string) {
     if (oldPassword !== adminPassword.value) {
       throw new Error('Mật khẩu cũ không đúng');
@@ -75,11 +86,13 @@ export const useAuthStore = defineStore('auth', () => {
     isLocked,
     lockMessage,
     ntpTimestamp,
+    expiryTimestamp,
     login,
     logout,
     setLock,
     clearLock,
     setNtpTimestamp,
+    setExpiryTimestamp,
     changePassword
   };
 });

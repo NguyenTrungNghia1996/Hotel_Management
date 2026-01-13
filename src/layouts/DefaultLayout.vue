@@ -16,6 +16,7 @@
           <div class="mt-2 text-sm text-white/70">
             Trống: {{ roomStats.empty }}/{{ roomStats.total }} phòng
           </div>
+          <div class="text-sm text-white/70">Quá hạn: {{ roomStats.overdue }}</div>
         </div>
       </div>
 
@@ -106,7 +107,8 @@ const todayLabel = computed(() => dayjs().format('dddd, DD/MM'));
 const roomStats = computed(() => {
   const total = hotelStore.rooms.length;
   const empty = hotelStore.rooms.filter(room => room.status === 'empty').length;
-  return { total, empty };
+  const overdue = hotelStore.rooms.filter(room => hotelStore.isOverdue(room)).length;
+  return { total, empty, overdue };
 });
 
 watch(

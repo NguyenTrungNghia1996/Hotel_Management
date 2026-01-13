@@ -8,10 +8,10 @@
           <div class="text-xs uppercase tracking-[0.3em] text-emerald-700">Tổng quan phòng</div>
           <h2 class="font-display mt-2 text-3xl text-slate-900">Theo dõi tình trạng phòng</h2>
           <p class="mt-2 text-sm text-slate-500">
-            Quản lý phòng đang sử dụng và phòng trống theo thời gian thực.
+            Quản lý phòng đang sử dụng, phòng trống và cảnh báo quá hạn theo thời gian thực.
           </p>
         </div>
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
           <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
             <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Tổng</div>
             <div class="mt-2 text-2xl font-semibold text-slate-800">{{ roomStats.total }}</div>
@@ -24,6 +24,10 @@
             <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Đang dùng</div>
             <div class="mt-2 text-2xl font-semibold text-teal-700">{{ roomStats.inUse }}</div>
           </div>
+          <div class="rounded-2xl bg-white/80 p-4 text-sm shadow-sm">
+            <div class="text-xs uppercase tracking-[0.2em] text-slate-400">Quá hạn</div>
+            <div class="mt-2 text-2xl font-semibold text-amber-700">{{ roomStats.overdue }}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -34,6 +38,7 @@
           <a-radio-button value="all">Tất cả</a-radio-button>
           <a-radio-button value="empty">Trống</a-radio-button>
           <a-radio-button value="in-use">Đang sử dụng</a-radio-button>
+          <a-radio-button value="overdue">Quá hạn</a-radio-button>
         </a-radio-group>
         <a-input-search
           v-model:value="searchText"
@@ -67,6 +72,9 @@
             {{ room.customer.name || 'Khách vãng lai' }}
           </div>
           <div class="mt-1 text-xs text-slate-500">{{ getDuration(room) }}</div>
+          <div v-if="room.customer.note" class="mt-1 text-xs text-slate-500 break-words">
+            Ghi chú: {{ room.customer.note }}
+          </div>
         </div>
       </div>
     </div>
@@ -88,6 +96,17 @@
                 :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
                 :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')" />
         </a-form-item>
+        <a-form-item label="Hạn sử dụng">
+          <a-date-picker
+            v-model:value="checkInExpireValue"
+            show-time
+            format="HH:mm DD/MM/YYYY"
+            class="w-full"
+            :allowClear="false"
+            @change="onCheckInExpireChange"
+          />
+          <small class="text-slate-500">Mặc định: theo giờ chuyển ngày. Chỉ để cảnh báo, không ảnh hưởng tính tiền.</small>
+        </a-form-item>
         <a-form-item label="Ghi chú">
           <a-textarea v-model:value="checkInForm.note" />
         </a-form-item>
@@ -106,6 +125,7 @@
              <div><strong>Khách:</strong> {{ selectedRoom.customer.name || 'Khách vãng lai' }}</div>
              <div><strong>SĐT:</strong> {{ selectedRoom.customer.phone || '---' }}</div>
              <div><strong>Vào lúc:</strong> {{ formatDate(selectedRoom.customer.checkInTime) }}</div>
+             <div><strong>Hạn sử dụng:</strong> {{ formatDate(getExpireAtIso(selectedRoom)) }}</div>
              <div><strong>Thời lượng:</strong> {{ getDuration(selectedRoom) }}</div>
              <div><strong>Cọc:</strong> {{ formatPrice(selectedRoom.customer.deposit) }}</div>
           </div>
@@ -126,6 +146,16 @@
                       <a-input-number v-model:value="editCustomerForm.deposit" class="w-full"
                         :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
                         :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')" />
+                   </a-form-item>
+                   <a-form-item label="Hạn sử dụng">
+                      <a-date-picker
+                        v-model:value="editExpireValue"
+                        show-time
+                        format="HH:mm DD/MM/YYYY"
+                        class="w-full"
+                        :allowClear="false"
+                        @change="onEditExpireChange"
+                      />
                    </a-form-item>
                    <a-form-item label="Ghi chú" class="md:col-span-2">
                       <a-textarea v-model:value="editCustomerForm.note" :auto-size="{ minRows: 2, maxRows: 4 }" />
@@ -265,12 +295,14 @@ const filterStatus = ref('all');
 const searchText = ref('');
 
 const filteredRooms = computed(() => {
+  now.value;
   return hotelStore.rooms.filter(room => {
     // 1. Check status
     let matchesStatus = true;
 
     if (filterStatus.value === 'empty') matchesStatus = room.status === 'empty';
-    if (filterStatus.value === 'in-use') matchesStatus = room.status !== 'empty';
+    if (filterStatus.value === 'in-use') matchesStatus = room.status !== 'empty' && !hotelStore.isOverdue(room);
+    if (filterStatus.value === 'overdue') matchesStatus = hotelStore.isOverdue(room);
     if (filterStatus.value === 'all') matchesStatus = true;
 
     // 2. Search
@@ -280,45 +312,56 @@ const filteredRooms = computed(() => {
 });
 
 const roomStats = computed(() => {
+  now.value;
   const total = hotelStore.rooms.length;
   const empty = hotelStore.rooms.filter(room => room.status === 'empty').length;
+  const overdue = hotelStore.rooms.filter(room => hotelStore.isOverdue(room)).length;
   return {
     total,
     empty,
+    overdue,
     inUse: total - empty
   };
 });
 
 const getStatusColor = (room: Room) => {
    if (room.status === 'empty') return 'bg-white border-emerald-100 text-slate-700 hover:border-emerald-300';
+   if (hotelStore.isOverdue(room)) return 'bg-[#fff4e6] border-[#f59e0b] text-[#92400e] hover:border-[#f97316]';
    return 'bg-[#eef7f3] border-[#1f8a70] text-[#114b3f] hover:border-[#2aa37f]';
 };
 
 const getStatusLabel = (room: Room) => {
   if (room.status === 'empty') return 'Trống';
+  if (hotelStore.isOverdue(room)) return 'Quá hạn';
   return 'Đang sử dụng';
 };
 
 const getStatusTone = (room: Room) => {
   if (room.status === 'empty') return 'text-emerald-700';
+  if (hotelStore.isOverdue(room)) return 'text-amber-700';
   return 'text-emerald-800';
 };
 
 const getStatusDot = (room: Room) => {
   if (room.status === 'empty') return 'bg-emerald-300';
+  if (hotelStore.isOverdue(room)) return 'bg-amber-500';
   return 'bg-emerald-500';
 };
 
 // --- Check In ---
 const checkInVisible = ref(false);
 const selectedRoomId = ref<string | null>(null);
-const checkInForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '' });
+const checkInForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '', expireAt: '' });
+const checkInExpireValue = ref<dayjs.Dayjs | null>(null);
 
 const handleRoomClick = (room: Room) => {
    selectedRoomId.value = room.id;
    if (room.status === 'empty') {
       // Open CheckIn
       checkInForm.name = ''; checkInForm.phone = ''; checkInForm.citizenId = ''; checkInForm.deposit = 0; checkInForm.note = '';
+      const defaultExpire = hotelStore.getDueTime(dayjs().toISOString(), hotelStore.limitTime);
+      checkInExpireValue.value = defaultExpire;
+      checkInForm.expireAt = defaultExpire.toISOString();
       checkInVisible.value = true;
    } else {
       // Open Detail
@@ -328,10 +371,16 @@ const handleRoomClick = (room: Room) => {
 
 const handleCheckIn = () => {
    if (selectedRoomId.value) {
-      hotelStore.checkIn(selectedRoomId.value, { ...checkInForm });
+      const checkInTime = dayjs().toISOString();
+      const expireAt = checkInForm.expireAt || hotelStore.getDueTime(checkInTime, hotelStore.limitTime).toISOString();
+      hotelStore.checkIn(selectedRoomId.value, { ...checkInForm, checkInTime, expireAt });
       message.success('Nhận phòng thành công');
       checkInVisible.value = false;
    }
+};
+
+const onCheckInExpireChange = (time: dayjs.Dayjs | null) => {
+  checkInForm.expireAt = time ? time.toISOString() : '';
 };
 
 // --- Detail & Service ---
@@ -339,7 +388,8 @@ const detailVisible = ref(false);
 const selectedRoom = ref<Room | null>(null);
 const serviceModalVisible = ref(false);
 const serviceForm = reactive({ serviceId: '', quantity: 1 });
-const editCustomerForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '' });
+const editCustomerForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '', expireAt: '' });
+const editExpireValue = ref<dayjs.Dayjs | null>(null);
 
 const openDetail = (room: Room) => {
    selectedRoom.value = room;
@@ -349,6 +399,9 @@ const openDetail = (room: Room) => {
       editCustomerForm.citizenId = room.customer.citizenId || '';
       editCustomerForm.deposit = room.customer.deposit || 0;
       editCustomerForm.note = room.customer.note || '';
+      const expireIso = room.customer.expireAt || hotelStore.getDueTime(room.customer.checkInTime, hotelStore.limitTime).toISOString();
+      editCustomerForm.expireAt = expireIso;
+      editExpireValue.value = dayjs(expireIso);
    }
    detailVisible.value = true;
 };
@@ -383,9 +436,14 @@ const saveCustomerEdits = () => {
       phone: editCustomerForm.phone?.trim() || '',
       citizenId: editCustomerForm.citizenId?.trim() || '',
       deposit,
-      note: editCustomerForm.note?.trim() || ''
+      note: editCustomerForm.note?.trim() || '',
+      expireAt: editCustomerForm.expireAt
    });
    message.success('Đã cập nhật thông tin khách hàng');
+};
+
+const onEditExpireChange = (time: dayjs.Dayjs | null) => {
+  editCustomerForm.expireAt = time ? time.toISOString() : '';
 };
 
 const removeUsageService = (usageIndex: number) => {
@@ -678,6 +736,15 @@ const formatDate = (iso: string) => dayjs(iso).format('HH:mm DD/MM/YYYY');
 const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 const formatTotal = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + '.000';
 const formatCompact = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
+
+const getExpireAtIso = (room: Room | null) => {
+   if (!room?.customer) return '';
+   const stored = room.customer.expireAt ? dayjs(room.customer.expireAt) : null;
+   const expireAt = stored && stored.isValid()
+     ? stored
+     : hotelStore.getDueTime(room.customer.checkInTime, hotelStore.limitTime);
+   return expireAt.toISOString();
+};
 
 const timer = setInterval(() => { now.value = dayjs(); }, 60000);
 onUnmounted(() => clearInterval(timer));

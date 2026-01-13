@@ -13,13 +13,14 @@ const NTP_PORT = 123;
 const NTP_TIMEOUT_MS = 2500;
 const NTP_UNIX_EPOCH = 2208988800;
 const HANOI_OFFSET_MS = 7 * 60 * 60 * 1000;
-const EXPIRY_DATE = new Date('2026-01-16T59:59:59.999+07:00');
+const EXPIRY_DATE = new Date('2026-01-15T59:59:59.999+07:00');
 
 let ntpStatus = {
   checked: false,
   ok: false,
   reason: 'pending',
-  timestamp: null
+  timestamp: null,
+  expiryTimestamp: null
 };
 
 const formatHanoiIso = (date) => {
@@ -32,6 +33,9 @@ const formatHanoiIso = (date) => {
   const seconds = pad(date.getUTCSeconds());
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+07:00`;
 };
+
+const getExpiryTimestamp = () =>
+  formatHanoiIso(new Date(EXPIRY_DATE.getTime() + HANOI_OFFSET_MS));
 
 const queryNtpTime = (host) => new Promise((resolve, reject) => {
   const socket = dgram.createSocket('udp4');
@@ -93,14 +97,16 @@ const checkNtpStatus = async () => {
       checked: true,
       ok: !isExpired,
       reason: isExpired ? 'expired' : 'ok',
-      timestamp: formatHanoiIso(hanoiTime)
+      timestamp: formatHanoiIso(hanoiTime),
+      expiryTimestamp: getExpiryTimestamp()
     };
   } catch (_err) {
     ntpStatus = {
       checked: true,
       ok: false,
       reason: 'unreachable',
-      timestamp: null
+      timestamp: null,
+      expiryTimestamp: getExpiryTimestamp()
     };
   }
   return ntpStatus;

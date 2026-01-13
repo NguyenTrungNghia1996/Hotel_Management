@@ -12,6 +12,7 @@ type NtpStatus = {
   ok: boolean;
   reason: string;
   timestamp: string | null;
+  expiryTimestamp: string | null;
 };
 
 const getIpcRenderer = () => {
@@ -27,12 +28,12 @@ const getIpcRenderer = () => {
 const fetchNtpStatus = async (): Promise<NtpStatus> => {
   const ipcRenderer = getIpcRenderer();
   if (!ipcRenderer) {
-    return { checked: true, ok: false, reason: 'ipc_unavailable', timestamp: null };
+    return { checked: true, ok: false, reason: 'ipc_unavailable', timestamp: null, expiryTimestamp: null };
   }
   try {
     return await ipcRenderer.invoke('ntp:get-status');
   } catch (_err) {
-    return { checked: true, ok: false, reason: 'unreachable', timestamp: null };
+    return { checked: true, ok: false, reason: 'unreachable', timestamp: null, expiryTimestamp: null };
   }
 };
 
@@ -47,6 +48,7 @@ const bootstrap = async () => {
   const authStore = useAuthStore(pinia);
   const status = await fetchNtpStatus();
   authStore.setNtpTimestamp(status.timestamp);
+  authStore.setExpiryTimestamp(status.expiryTimestamp);
   if (!status.ok) {
     authStore.setLock(status.reason || 'unreachable');
     if (router.currentRoute.value.path !== '/login') {
