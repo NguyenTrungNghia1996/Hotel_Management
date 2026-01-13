@@ -98,6 +98,16 @@
                 :formatter="(value: any) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')"
                 :parser="(value: string) => value.replace(/\$\s?|(,*)/g, '')" />
         </a-form-item>
+        <a-form-item label="Giờ quá hạn">
+          <a-time-picker
+            v-model:value="checkInTimeValue"
+            format="HH:mm"
+            class="w-full"
+            :allowClear="false"
+            @change="onCheckInLimitChange"
+          />
+          <small class="text-slate-500">Mặc định: {{ hotelStore.limitTime }}</small>
+        </a-form-item>
         <a-form-item label="Ghi chú">
           <a-textarea v-model:value="checkInForm.note" />
         </a-form-item>
@@ -116,7 +126,7 @@
              <div><strong>Khách:</strong> {{ selectedRoom.customer.name || 'Khách vãng lai' }}</div>
              <div><strong>SĐT:</strong> {{ selectedRoom.customer.phone || '---' }}</div>
              <div><strong>Vào lúc:</strong> {{ formatDate(selectedRoom.customer.checkInTime) }}</div>
-             <div><strong>Hạn lúc:</strong> {{ formatDate(hotelStore.getDueTime(selectedRoom.customer.checkInTime, hotelStore.limitTime).toISOString()) }}</div>
+             <div><strong>Hạn lúc:</strong> {{ formatDate(hotelStore.getDueTime(selectedRoom.customer.checkInTime, getRoomLimitTime(selectedRoom)).toISOString()) }}</div>
              <div><strong>Thời lượng:</strong> {{ getDuration(selectedRoom) }}</div>
              <div><strong>Cọc:</strong> {{ formatPrice(selectedRoom.customer.deposit) }}</div>
           </div>
@@ -292,13 +302,16 @@ const getStatusDot = (room: Room) => {
 // --- Check In ---
 const checkInVisible = ref(false);
 const selectedRoomId = ref<string | null>(null);
-const checkInForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '' });
+const checkInForm = reactive({ name: '', phone: '', citizenId: '', deposit: 0, note: '', customLimitTime: hotelStore.limitTime });
+const checkInTimeValue = ref(dayjs(hotelStore.limitTime, 'HH:mm'));
 
 const handleRoomClick = (room: Room) => {
    selectedRoomId.value = room.id;
    if (room.status === 'empty') {
       // Open CheckIn
       checkInForm.name = ''; checkInForm.phone = ''; checkInForm.citizenId = ''; checkInForm.deposit = 0; checkInForm.note = '';
+      checkInForm.customLimitTime = hotelStore.limitTime;
+      checkInTimeValue.value = dayjs(hotelStore.limitTime, 'HH:mm');
       checkInVisible.value = true;
    } else {
       // Open Detail
@@ -312,6 +325,10 @@ const handleCheckIn = () => {
       message.success('Nhận phòng thành công');
       checkInVisible.value = false;
    }
+};
+
+const onCheckInLimitChange = (time: dayjs.Dayjs | null) => {
+  checkInForm.customLimitTime = time ? time.format('HH:mm') : hotelStore.limitTime;
 };
 
 // --- Detail & Service ---
@@ -364,7 +381,7 @@ const openCheckout = () => {
    
    // Build Invoice
    // 1. Blocks
-   const blocks = hotelStore.calculateBlocks(selectedRoom.value.customer.checkInTime, hotelStore.limitTime);
+   const blocks = hotelStore.calculateBlocks(selectedRoom.value.customer.checkInTime, getRoomLimitTime(selectedRoom.value));
    const blockItem = {
       name: `Tiền giờ (${blocks} block)`,
       price: hotelStore.blockPrice,
@@ -568,6 +585,8 @@ const generatePrintableHtml = (payload: PrintPayload) => {
 const formatDate = (iso: string) => dayjs(iso).format('HH:mm DD/MM/YYYY');
 const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 const formatTotal = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + '.000';
+
+const getRoomLimitTime = (room: Room | null) => room?.customer?.customLimitTime || hotelStore.limitTime;
 
 const timer = setInterval(() => { now.value = dayjs(); }, 60000);
 onUnmounted(() => clearInterval(timer));

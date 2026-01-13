@@ -19,6 +19,7 @@ export interface Room {
     checkInTime: string; // ISO string
     deposit: number;
     note?: string;
+    customLimitTime?: string;
   };
   // Services used by the room
   usage: { serviceId: string; quantity: number; price: number }[]; // price at time of add
@@ -92,7 +93,7 @@ export const useHotelStore = defineStore('hotel', () => {
 
   function isOverdue(room: Room): boolean {
     if (room.status === 'empty' || !room.customer) return false;
-    const due = getDueTime(room.customer.checkInTime, limitTime.value);
+    const due = getDueTime(room.customer.checkInTime, room.customer.customLimitTime || limitTime.value);
     return dayjs().isAfter(due);
   }
 
@@ -117,7 +118,8 @@ export const useHotelStore = defineStore('hotel', () => {
       room.status = 'in-use';
       room.customer = {
         ...customerData,
-        checkInTime: dayjs().toISOString()
+        checkInTime: dayjs().toISOString(),
+        customLimitTime: customerData.customLimitTime || limitTime.value
       };
       room.usage = [];
       room.customItems = [];
