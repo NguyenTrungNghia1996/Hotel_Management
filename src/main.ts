@@ -5,10 +5,58 @@ import App from './App.vue'
 import router from './router'
 import Antd from 'ant-design-vue';
 import 'ant-design-vue/dist/reset.css';
+import { useAuthStore } from './stores/auth';
 
-const app = createApp(App);
+type NtpStatus = {
+  checked: boolean;
+  ok: boolean;
+  reason: string;
+  timestamp: string | null;
+};
 
-app.use(createPinia());
-app.use(router);
-app.use(Antd);
-app.mount('#app');
+const getIpcRenderer = () => {
+  const w = window as any;
+  if (!w?.require) return null;
+  try {
+    return w.require('electron').ipcRenderer;
+  } catch (_err) {
+    return null;
+  }
+};
+
+const fetchNtpStatus = async (): Promise<NtpStatus> => {
+  const ipcRenderer = getIpcRenderer();
+  if (!ipcRenderer) {
+    return { checked: true, ok: false, reason: 'ipc_unavailable', timestamp: null };
+  }
+  try {
+    return await ipcRenderer.invoke('ntp:get-status');
+  } catch (_err) {
+    return { checked: true, ok: false, reason: 'unreachable', timestamp: null };
+  }
+};
+
+const bootstrap = async () => {
+  const app = createApp(App);
+  const pinia = createPinia();
+
+  app.use(pinia);
+  app.use(router);
+  app.use(Antd);
+
+  const authStore = useAuthStore(pinia);
+  const status = await fetchNtpStatus();
+  authStore.setNtpTimestamp(status.timestamp);
+  if (!status.ok) {
+    authStore.setLock(status.reason || 'unreachable');
+    if (router.currentRoute.value.path !== '/login') {
+      await router.replace('/login');
+    }
+  } else {
+    authStore.clearLock();
+  }
+
+  app.mount('#app');
+};
+
+bootstrap();

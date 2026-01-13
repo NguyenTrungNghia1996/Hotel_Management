@@ -70,6 +70,12 @@
           <div class="mt-4 inline-flex items-center gap-2 rounded-full bg-amber-100 px-4 py-2 text-xs text-amber-800">
             Mặc định: admin / admin
           </div>
+          <div class="mt-3 rounded-2xl bg-slate-100 px-4 py-3 text-xs text-slate-700">
+            Giờ NTP (Hà Nội): {{ authStore.ntpTimestamp ? formatNtp(authStore.ntpTimestamp) : 'Không thể lấy thời gian' }}
+          </div>
+          <div v-if="authStore.isLocked" class="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-xs text-rose-700">
+            {{ authStore.lockMessage }}
+          </div>
         </div>
       </div>
     </div>
@@ -91,8 +97,15 @@ const formState = reactive({
   password: '',
 });
 
+const formatNtp = (value: string) => value.replace('T', ' ').replace('+07:00', '');
+
 const onFinish = (values: any) => {
   loading.value = true;
+  if (authStore.isLocked) {
+    message.error(authStore.lockMessage);
+    loading.value = false;
+    return;
+  }
   if (values.username !== 'admin') {
     message.error('Tên đăng nhập không đúng');
     loading.value = false;
