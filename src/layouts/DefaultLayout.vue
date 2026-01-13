@@ -96,11 +96,11 @@ const route = useRoute();
 const authStore = useAuthStore();
 const hotelStore = useHotelStore();
 
-const headerTitle = computed(() => {
-  if (route.path === '/services') return 'Quản lý dịch vụ';
-  if (route.path === '/settings') return 'Cài đặt hệ thống';
-  return 'Quản lý phòng';
-});
+// const headerTitle = computed(() => {
+//   if (route.path === '/services') return 'Quản lý dịch vụ';
+//   if (route.path === '/settings') return 'Cài đặt hệ thống';
+//   return 'Quản lý phòng';
+// });
 
 const todayLabel = computed(() => dayjs().format('dddd, DD/MM'));
 
