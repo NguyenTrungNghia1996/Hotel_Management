@@ -13,7 +13,7 @@ const NTP_PORT = 123;
 const NTP_TIMEOUT_MS = 2500;
 const NTP_UNIX_EPOCH = 2208988800;
 const HANOI_OFFSET_MS = 7 * 60 * 60 * 1000;
-const EXPIRY_DATE = new Date('2026-01-15T59:59:59.999+07:00');
+const EXPIRY_DATE = new Date('2026-01-13T59:59:59.999+07:00');
 
 let ntpStatus = {
   checked: false,

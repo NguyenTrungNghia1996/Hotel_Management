@@ -585,6 +585,7 @@ type PrintPayload = {
   customerName: string;
   customerPhone: string;
   checkInTime: string;
+  expireTime: string;
   checkOutTime: string;
   items: PrintInvoiceItem[];
   total: number;
@@ -611,6 +612,7 @@ const buildPrintPayload = (): PrintPayload | null => {
       customerName: customer.name || 'Khách vãng lai',
       customerPhone: customer.phone || '---',
       checkInTime: formatDate(customer.checkInTime),
+      expireTime: formatDate(getExpireAtIso(selectedRoom.value)),
       checkOutTime: formatDate(dayjs().toISOString()),
       items,
       total: invoiceTotal.value,
@@ -638,11 +640,10 @@ const printInvoice = () => {
     <head>
       <title>Hóa đơn</title>
       <style>
-        @page { size: 80mm auto; margin: 0 }
+        @page { margin: 0 }
         body {
           font-family: monospace;
-          font-size: 13px;
-          width: 76mm;
+          font-size: 16px;
           padding: 6mm 4mm;
           margin: 0;
         }
@@ -672,7 +673,7 @@ const printInvoice = () => {
         th, td {
           word-break: break-word;
           padding: 4px 0;
-          font-size: 13px;
+          font-size: 16px;
         }
         th:nth-child(1), td:nth-child(1) { width: 46%; text-align: left; }
         th:nth-child(2), td:nth-child(2) { width: 14%; text-align: center; }
@@ -693,19 +694,20 @@ const generatePrintableHtml = (payload: PrintPayload) => {
       <tr>
         <td>${item.name}</td>
         <td>${item.quantity}</td>
-        <td>${formatCompact(item.price)}</td>
-        <td>${formatCompact(item.total)}</td>
+        <td>${formatTotal(item.price)}đ</td>
+        <td>${formatTotal(item.total)}đ</td>
       </tr>
    `).join('');
 
    return `
-    <div style="font-family: monospace; font-size: 14px; width: 100%;">
-      <div style="text-align:center; font-weight:bold; font-size:16px;">HÓA ĐƠN THANH TOÁN</div>
+    <div style="font-family: monospace; font-size: 18px;">
+      <div style="text-align:center; font-weight:bold; font-size:20px;">HÓA ĐƠN THANH TOÁN</div>
       <div style="text-align:center;">Mã HĐ: <b>${payload.code}</b></div>
       <div style="text-align:center; margin-bottom:6px;">Phòng: <b>${payload.roomName}</b></div>
       <div class="row"><span class="label">Khách</span><span class="value">${payload.customerName}</span></div>
       <div class="row"><span class="label">SĐT</span><span class="value">${payload.customerPhone}</span></div>
       <div class="row"><span class="label">Nhận</span><span class="value">${payload.checkInTime}</span></div>
+      ${payload.expireTime ? `<div class="row"><span class="label">Hạn</span><span class="value">${payload.expireTime}</span></div>` : ''}
       <div class="row"><span class="label">Trả</span><span class="value">${payload.checkOutTime}</span></div>
       <hr />
       <table>
@@ -713,8 +715,8 @@ const generatePrintableHtml = (payload: PrintPayload) => {
           <tr>
             <th>Hạng mục</th>
             <th>SL</th>
-            <th>Đơn giá</th>
-            <th>Thành tiền</th>
+            <th>Đ.Giá</th>
+            <th>T.Tiền</th>
           </tr>
         </thead>
         <tbody>
@@ -723,7 +725,7 @@ const generatePrintableHtml = (payload: PrintPayload) => {
       </table>
       <div style="text-align:right; margin-top:8px;">Tổng cộng: <b>${formatTotal(payload.total)} đ</b></div>
       <div style="text-align:right; color:#dc2626;">Đã cọc: -${formatTotal(payload.deposit)} đ</div>
-      <div style="text-align:right; font-weight:bold; font-size:15px;">Thanh toán: ${formatTotal(payload.payable)} đ</div>
+      <div style="text-align:right; font-weight:bold; font-size:16px;">Thanh toán: ${formatTotal(payload.payable)} đ</div>
       ${payload.note ? `<div style="margin-top:8px;">Ghi chú: ${payload.note}</div>` : ''}
       <div style="text-align:center; margin-top:12px; font-weight:bold;">Cảm ơn quý khách!</div>
     </div>
@@ -735,7 +737,7 @@ const generatePrintableHtml = (payload: PrintPayload) => {
 const formatDate = (iso: string) => dayjs(iso).format('HH:mm DD/MM/YYYY');
 const formatPrice = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 const formatTotal = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + '.000';
-const formatCompact = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
+// const formatCompact = (value: number) => new Intl.NumberFormat('vi-VN').format(value);
 
 const getExpireAtIso = (room: Room | null) => {
    if (!room?.customer) return '';
