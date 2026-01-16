@@ -586,7 +586,6 @@ type PrintPayload = {
   customerPhone: string;
   checkInTime: string;
   expireTime: string;
-  checkOutTime: string;
   items: PrintInvoiceItem[];
   total: number;
   deposit: number;
@@ -613,7 +612,6 @@ const buildPrintPayload = (): PrintPayload | null => {
       customerPhone: customer.phone || '---',
       checkInTime: formatDate(customer.checkInTime),
       expireTime: formatDate(getExpireAtIso(selectedRoom.value)),
-      checkOutTime: formatDate(dayjs().toISOString()),
       items,
       total: invoiceTotal.value,
       deposit: depositAmount.value || 0,
@@ -675,10 +673,10 @@ const printInvoice = () => {
           padding: 4px 0;
           font-size: 16px;
         }
-        th:nth-child(1), td:nth-child(1) { width: 46%; text-align: left; }
-        th:nth-child(2), td:nth-child(2) { width: 14%; text-align: center; }
-        th:nth-child(3), td:nth-child(3) { width: 20%; text-align: right; }
-        th:nth-child(4), td:nth-child(4) { width: 20%; text-align: right; }
+        th:nth-child(1), td:nth-child(1) { width: 40%; text-align: left; }
+        th:nth-child(2), td:nth-child(2) { width: 10%; text-align: center; }
+        th:nth-child(3), td:nth-child(3) { width: 25%; text-align: right; }
+        th:nth-child(4), td:nth-child(4) { width: 25%; text-align: right; }
       </style>
     </head>
     <body onload="window.print()">
@@ -704,11 +702,10 @@ const generatePrintableHtml = (payload: PrintPayload) => {
       <div style="text-align:center; font-weight:bold; font-size:20px;">HÓA ĐƠN THANH TOÁN</div>
       <div style="text-align:center;">Mã HĐ: <b>${payload.code}</b></div>
       <div style="text-align:center; margin-bottom:6px;">Phòng: <b>${payload.roomName}</b></div>
-      <div class="row"><span class="label">Khách</span><span class="value">${payload.customerName}</span></div>
-      <div class="row"><span class="label">SĐT</span><span class="value">${payload.customerPhone}</span></div>
-      <div class="row"><span class="label">Nhận</span><span class="value">${payload.checkInTime}</span></div>
-      ${payload.expireTime ? `<div class="row"><span class="label">Hạn</span><span class="value">${payload.expireTime}</span></div>` : ''}
-      <div class="row"><span class="label">Trả</span><span class="value">${payload.checkOutTime}</span></div>
+      <div class="row"><span class="label">Khách:</span><span class="value">${payload.customerName}</span></div>
+      <div class="row"><span class="label">SĐT:</span><span class="value">${payload.customerPhone}</span></div>
+      <div class="row"><span class="label">Nhận:</span><span class="value">${payload.checkInTime}</span></div>
+      ${payload.expireTime ? `<div class="row"><span class="label">Hạn:</span><span class="value">${payload.expireTime}</span></div>` : ''}
       <hr />
       <table>
         <thead>
